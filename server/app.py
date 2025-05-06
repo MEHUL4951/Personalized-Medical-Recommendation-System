@@ -55,40 +55,58 @@ diseases_list = {15: 'Fungal infection', 4: 'Allergy', 16: 'GERD', 9: 'Chronic c
 @app.route("/predict", methods=["POST"])
 def predict():
    try:
+        # Get the JSON data from the request
         data = request.get_json()
+        print(data)
+        
+        # Get the symptoms list from the request
         symptoms_input = data.get("symptoms", [])
+        
+        # If no symptoms are provided, return an error
         if not symptoms_input:
-              return jsonify({"error": "No symptoms provided"}), 400
-        user_symptoms = [s.strip("[]' ").lower().replace(" ","_") for s in symptoms_input.split(",")]
-
+            return jsonify({"error": "No symptoms provided"}), 400
+        
+        # Process symptoms to standardize (strip, convert to lowercase, and replace spaces with underscores)
+        user_symptoms = [s.strip().lower().replace(" ", "_") for s in symptoms_input]
+        
+        # Validate symptoms (check if each symptom is in your predefined symptom dictionary)
         invalid_symptoms = [s for s in user_symptoms if s not in symptoms_dict]
         if invalid_symptoms:
-              return jsonify({"error": f"Invalid symptoms: {', '.join(invalid_symptoms)}"}), 400
+            return jsonify({"error": f"Invalid symptoms: {', '.join(invalid_symptoms)}"}), 400
         
+        # Get the predicted disease based on the symptoms
         predicted_disease = get_prediction_value(user_symptoms)
-        desc , pre , med,diet,wrkout = helper(predicted_disease)
+        
+        # Fetch the description, precautions, medications, diet, and workout
+        desc, pre, med, diet, wrkout = helper(predicted_disease)
+        
+        # Function to clean the values (e.g., handle numpy arrays and string representations of lists)
         def clean(val):
-          if isinstance(val, np.ndarray):
+            if isinstance(val, np.ndarray):
                 val = val.tolist()
-          if isinstance(val, list) and len(val) == 1 and isinstance(val[0], str) and val[0].startswith("["):
-              try:
-                  return ast.literal_eval(val[0])
-              except:
-                  return val
-          return val
-        response  = {
+            if isinstance(val, list) and len(val) == 1 and isinstance(val[0], str) and val[0].startswith("["):
+                try:
+                    return ast.literal_eval(val[0])
+                except:
+                    return val
+            return val
+        
+        # Prepare the response
+        response = {
             "Disease": predicted_disease,
             "description": desc,
             "precautions": clean(pre[0]),
             "medications": clean(med),
             "diet": clean(diet),
-            "workout": wrkout 
+            "workout": wrkout
         }
+        
+        # Return the response as JSON
         return jsonify(response)
-   except Exception as e:
-        return jsonify({"error": str(e)}), 500
     
-
+   except Exception as e:
+        # Return an error message if an exception occurs
+        return jsonify({"error": str(e)}), 500
 
 # Run the Flask app
 if __name__ == '__main__':
